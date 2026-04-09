@@ -1,0 +1,251 @@
+# Agent 配置文件
+
+本文档定义 Agent 的配置参数。
+
+## Agent 类型配置
+
+```yaml
+# configs/agent-config.yaml
+
+agents:
+  # ========================================
+  # 编码 Agent
+  # ========================================
+  coding:
+    model: "gpt-4o"
+    temperature: 0.2
+    max_tokens: 4096
+    top_p: 1.0
+    frequency_penalty: 0.0
+    presence_penalty: 0.0
+
+    system_prompt: |
+      You are a coding assistant specialized in {language}.
+      Follow the project's coding standards and architecture constraints.
+
+    tools:
+      enabled:
+        - read_file
+        - write_file
+        - edit_file
+        - search_code
+        - run_command
+        - run_test
+        - run_build
+
+      disabled:
+        - delete_file
+        - network_request
+
+    constraints:
+      # 文件操作
+      max_file_size: "1MB"
+      allowed_extensions:
+        - ".ts"
+        - ".tsx"
+        - ".js"
+        - ".jsx"
+        - ".json"
+        - ".md"
+
+      # 命令执行
+      allowed_commands:
+        - "npm *"
+        - "npx *"
+        - "node *"
+        - "git status"
+        - "git log"
+        - "git diff"
+        - "ls"
+        - "cat"
+
+      blocked_commands:
+        - "sudo"
+        - "rm -rf /"
+        - "ssh"
+        - "curl"
+        - "wget"
+
+    # 行为设置
+    behavior:
+      require_test: true
+      auto_lint: true
+      auto_format: true
+      confirm_delete: true
+      confirm_destructive: true
+
+    # 超时设置
+    timeouts:
+      tool_call: 60
+      task: 600
+      total_session: 3600
+
+  # ========================================
+  # 研究 Agent
+  # ========================================
+  research:
+    model: "gpt-4o"
+    temperature: 0.3
+    max_tokens: 8192
+
+    system_prompt: |
+      You are a research assistant specialized in code analysis.
+      Focus on understanding code, finding patterns, and providing insights.
+
+    tools:
+      enabled:
+        - read_file
+        - search_code
+        - list_imports
+        - find_definitions
+        - find_references
+
+    constraints:
+      read_only: true
+      no_code_modification: true
+
+    behavior:
+      cite_sources: true
+      include_examples: true
+      cross_reference: true
+
+  # ========================================
+  # 评审 Agent
+  # ========================================
+  review:
+    model: "gpt-4o"
+    temperature: 0.1
+    max_tokens: 4096
+
+    system_prompt: |
+      You are a code review assistant.
+      Provide constructive feedback following the project's code standards.
+
+    tools:
+      enabled:
+        - read_file
+        - search_code
+        - run_test
+        - run_lint
+
+    review_dimensions:
+      - correctness
+      - readability
+      - performance
+      - security
+      - best_practices
+
+    constraints:
+      read_only: true
+      must_cite_rules: true
+
+    behavior:
+      suggest_fixes: true
+      prioritize_issues: true
+      rate_severity: true
+
+  # ========================================
+  # 编排 Agent
+  # ========================================
+  orchestrator:
+    model: "gpt-4o"
+    temperature: 0.2
+    max_tokens: 8192
+
+    system_prompt: |
+      You are an orchestrator that coordinates multiple sub-agents.
+      Break down tasks, delegate to appropriate agents, and aggregate results.
+
+    capabilities:
+      task_decomposition: true
+      agent_delegation: true
+      progress_tracking: true
+      error_recovery: true
+
+    coordination:
+      parallel_tasks: true
+      sequential_tasks: true
+      conditional_tasks: true
+      max_parallel: 5
+
+    behavior:
+      show_planning: true
+      track_dependencies: true
+      report_progress: true
+```
+
+## 默认配置
+
+```yaml
+# configs/defaults.yaml
+
+defaults:
+  # 模型设置
+  model: "gpt-4o"
+  temperature: 0.2
+  max_tokens: 4096
+
+  # 工具设置
+  tools:
+    read_file:
+      max_file_size: "1MB"
+      encoding: "utf-8"
+
+    write_file:
+      create_backup: true
+      add_header: true
+
+    run_command:
+      timeout: 60
+      capture_output: true
+
+  # 安全设置
+  security:
+    sandbox_mode: true
+    restricted_mode: false
+    audit_enabled: true
+
+  # 反馈设置
+  feedback:
+    show_reasoning: false
+    verbose_errors: true
+    suggest_fixes: true
+
+  # 性能设置
+  performance:
+    cache_enabled: true
+    batch_tools: false
+    parallel_execution: false
+```
+
+## 环境特定配置
+
+```yaml
+# configs/environments.yaml
+
+environments:
+  development:
+    model: "gpt-4o"
+    temperature: 0.3
+    verbose: true
+    debug_mode: true
+
+  staging:
+    model: "gpt-4o"
+    temperature: 0.2
+    verbose: false
+    debug_mode: false
+
+  production:
+    model: "gpt-4o"
+    temperature: 0.1
+    verbose: false
+    debug_mode: false
+    strict_mode: true
+```
+
+## 相关文档
+
+- [AGENTS.md](../AGENTS.md) - Agent 配置指南
+- [ARCHITECTURE.md](../ARCHITECTURE.md) - 架构约束
+- [docs/security.md](../docs/security.md) - 安全规范

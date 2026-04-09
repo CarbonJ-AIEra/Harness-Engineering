@@ -1,0 +1,277 @@
+# 约束配置文件
+
+本文档定义项目的各种约束规则。
+
+## 架构约束
+
+```yaml
+# configs/constraints.yaml
+
+architecture:
+  # 模块层次定义
+  layers:
+    - name: "presentation"
+      description: "UI 层，组件和视图"
+      can_access:
+        - "application"
+      cannot_access:
+        - "infrastructure"
+        - "domain"
+
+    - name: "application"
+      description: "应用层，用例和服务"
+      can_access:
+        - "domain"
+        - "infrastructure"
+      cannot_access:
+        - "presentation"
+
+    - name: "domain"
+      description: "领域层，实体和业务规则"
+      can_access: []
+      cannot_access:
+        - "application"
+        - "infrastructure"
+        - "presentation"
+
+    - name: "infrastructure"
+      description: "基础设施层，外部依赖"
+      can_access:
+        - "domain"
+      cannot_access:
+        - "presentation"
+        - "application"
+
+  # 依赖规则
+  dependency_rules:
+    no_circular_dependencies: true
+    no_layer_violations: true
+    strict_import_order: true
+
+    import_order:
+      - "external"
+      - "internal"
+      - "parent"
+      - "sibling"
+      - "index"
+
+# 文件约束
+file:
+  max_lines: 500
+  max_size_kb: 50
+
+  naming:
+    conventions:
+      - pattern: "*.ts"
+        style: "kebab-case"
+      - pattern: "*.tsx"
+        style: "kebab-case"
+      - pattern: "*.test.ts"
+        style: "kebab-case.spec.ts"
+
+  structure:
+    require_header: true
+    require_export: true
+```
+
+## 代码规范约束
+
+```yaml
+# configs/linting-rules.yaml
+
+linting:
+  typescript:
+    rules:
+      # 禁止
+      "@typescript-eslint/no-explicit-any": "error"
+      "@typescript-eslint/no-unused-vars": "error"
+      "@typescript-eslint/no-floating-promises": "error"
+      "no-console": ["error", { "allow": ["warn", "error"] }]
+
+      # 强制
+      "@typescript-eslint/explicit-function-return-type": "warn"
+      "@typescript-eslint/explicit-module-boundary-types": "warn"
+      "prefer-const": "error"
+      "no-var": "error"
+
+      # 格式化
+      "@typescript-eslint/indent": ["error", 2]
+      "@typescript-eslint/semi": ["error", "always"]
+      "@typescript-eslint/quotes": ["error", "single"]
+
+  import_rules:
+    "import/order": ["error", {
+      "groups": [
+        "builtin",
+        "external",
+        "internal",
+        "parent",
+        "sibling",
+        "index"
+      ],
+      "newlines-between": "always"
+    }]
+
+    "import/no-unresolved": "error"
+    "import/named": "error"
+    "import/default": "error"
+
+# 复杂度约束
+complexity:
+  max_function_length: 100
+  max_file_length: 500
+  max_cyclomatic: 10
+  max_nesting: 4
+  max_parameters: 5
+```
+
+## 安全约束
+
+```yaml
+# configs/security-rules.yaml
+
+security:
+  # 输入验证
+  input_validation:
+    enabled: true
+
+    patterns:
+      allowed:
+        - "^[a-zA-Z0-9_-]+$"
+      blocked:
+        - "<script"
+        - "javascript:"
+        - "{{"
+        - "}}"
+
+  # 凭证检测
+  credential_detection:
+    enabled: true
+
+    patterns:
+      - "sk-[a-zA-Z0-9]{48}"
+      - "ghp_[a-zA-Z0-9]{36}"
+      - "password\\s*[:=]\\s*[^\\s]+"
+      - "api[_-]?key\\s*[:=]\\s*[^\\s]+"
+      - "-----BEGIN (RSA |EC )?PRIVATE KEY-----"
+
+  # 命令执行
+  command_execution:
+    blocked:
+      - "sudo"
+      - "rm -rf /"
+      - "rm -rf /home"
+      - "chmod -R 777"
+      - "curl.*\\|.*sh"
+      - "wget.*\\|.*sh"
+
+  # 文件访问
+  file_access:
+    readonly_paths:
+      - "/etc"
+      - "/system"
+      - "/usr"
+
+    blocked_paths:
+      - "/.ssh"
+      - "/root"
+      - "*.pem"
+      - "*.key"
+      - ".env"
+```
+
+## 测试约束
+
+```yaml
+# configs/test-rules.yaml
+
+testing:
+  coverage:
+    minimum:
+      overall: 80
+      branches: 75
+      functions: 80
+      lines: 80
+      statements: 80
+
+    enforcement: true
+
+  requirements:
+    require_tests_for_new_code: true
+    test_naming:
+      pattern: "*.spec.ts"
+      describe_format: "ModuleName"
+      it_format: "should [expected behavior]"
+
+  forbidden:
+    - "describe.skip"
+    - "it.skip"
+    - "only"
+```
+
+## 性能约束
+
+```yaml
+# configs/performance-rules.yaml
+
+performance:
+  # Bundle 大小
+  bundle:
+    max_size_kb:
+      initial: 150
+      async: 150
+
+    enforcement: true
+
+  # 运行时性能
+  runtime:
+    max_duration_ms: 100
+    max_memory_mb: 50
+
+  # 数据库
+  database:
+    max_query_duration_ms: 1000
+    require_index: true
+    no_n_plus_1: true
+
+  # API
+  api:
+    max_response_time_ms: 500
+    require_pagination: true
+    max_page_size: 100
+```
+
+## 文档约束
+
+```yaml
+# configs/documentation-rules.yaml
+
+documentation:
+  required:
+    - path: "**/*.ts"
+      check:
+        - file_header
+        - exported_functions
+        - interfaces
+        - types
+
+    - path: "**/*.md"
+      check:
+        - heading_structure
+        - code_blocks_have_language
+
+  optional:
+    - examples
+    - see_also
+    - related
+
+  format:
+    language: "chinese"
+    code_language: "typescript"
+```
+
+## 相关文档
+
+- [ARCHITECTURE.md](../ARCHITECTURE.md) - 架构约束
+- [docs/security.md](../docs/security.md) - 安全规范
+- [HARNESS.md](../HARNESS.md) - 总体规范
