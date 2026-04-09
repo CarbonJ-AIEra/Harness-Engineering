@@ -1,0 +1,231 @@
+# 可观测性配置文件
+
+本文档定义 Agent 的可观测性配置。
+
+## 指标配置
+
+```yaml
+# configs/observability.yaml
+
+metrics:
+  # 是否启用
+  enabled: true
+
+  # 采集间隔
+  collection_interval: 60  # seconds
+
+  # 存储后端
+  backend: "prometheus"
+  endpoint: "http://prometheus:9090"
+
+  # 核心指标
+  core_metrics:
+    # Agent 性能指标
+    agent_performance:
+      - name: "task_success_total"
+        type: "counter"
+        description: "成功任务总数"
+        labels: ["task_type", "agent_id"]
+
+      - name: "task_failure_total"
+        type: "counter"
+        description: "失败任务总数"
+        labels: ["task_type", "agent_id", "error_type"]
+
+      - name: "task_duration_seconds"
+        type: "histogram"
+        description: "任务执行时间"
+        buckets: [1, 5, 10, 30, 60, 120, 300, 600]
+        labels: ["task_type"]
+
+      - name: "token_usage_total"
+        type: "counter"
+        description: "Token 总消耗"
+        labels: ["model", "task_type", "type"]  # type: input/output
+
+    # Harness 健康指标
+    harness_health:
+      - name: "constraint_violations_total"
+        type: "counter"
+        description: "约束违反次数"
+        labels: ["constraint_type", "severity"]
+
+      - name: "feedback_latency_seconds"
+        type: "histogram"
+        description: "反馈延迟"
+        buckets: [0.1, 0.5, 1, 5, 10, 30]
+
+      - name: "context_usage_ratio"
+        type: "gauge"
+        description: "上下文使用率"
+        labels: ["agent_id"]
+
+      - name: "context_exhaustion_total"
+        type: "counter"
+        description: "上下文耗尽次数"
+
+    # 工具使用指标
+    tool_usage:
+      - name: "tool_calls_total"
+        type: "counter"
+        description: "工具调用总数"
+        labels: ["tool_name", "status"]
+
+      - name: "tool_duration_seconds"
+        type: "histogram"
+        description: "工具执行时间"
+        buckets: [0.1, 0.5, 1, 5, 10, 30]
+        labels: ["tool_name"]
+
+      - name: "tool_errors_total"
+        type: "counter"
+        description: "工具错误总数"
+        labels: ["tool_name", "error_type"]
+```
+
+## 追踪配置
+
+```yaml
+tracing:
+  # 是否启用
+  enabled: true
+
+  # 采样率
+  sampling:
+    type: "probabilistic"
+    rate: 0.1  # 10%
+
+  # 存储后端
+  backend: "jaeger"
+  endpoint: "http://jaeger:14268/api/traces"
+
+  # 追踪内容
+  instrumentation:
+    automatic: true
+    manual_spans: true
+
+    include:
+      - task_lifecycle
+      - tool_calls
+      - agent_decisions
+      - context_operations
+
+  # 追踪属性
+  attributes:
+    required:
+      - agent_id
+      - session_id
+      - task_id
+      - task_type
+
+    optional:
+      - model
+      - temperature
+      - tools_available
+
+  # 保留策略
+  retention:
+    days: 7
+```
+
+## 告警配置
+
+```yaml
+alerts:
+  enabled: true
+
+  # 告警渠道
+  channels:
+    - name: "slack"
+      enabled: true
+      webhook: "${SLACK_WEBHOOK_URL}"
+
+    - name: "email"
+      enabled: false
+      recipients: ["oncall@example.com"]
+
+  # 告警规则
+  rules:
+    - name: "high_failure_rate"
+      condition: "rate(task_failure_total[5m]) / rate(task_success_total[5m]) > 0.15"
+      severity: "critical"
+      message: "任务失败率超过 15%"
+      channels: ["slack", "email"]
+
+    - name: "slow_tasks"
+      condition: "histogram_quantile(0.95, task_duration_seconds) > 600"
+      severity: "warning"
+      message: "P95 任务执行时间超过 10 分钟"
+      channels: ["slack"]
+
+    - name: "context_exhaustion"
+      condition: "rate(context_exhaustion_total[10m]) > 0.05"
+      severity: "warning"
+      message: "上下文耗尽频率异常"
+      channels: ["slack"]
+
+    - name: "tool_errors_spike"
+      condition: "rate(tool_errors_total[5m]) > 10"
+      severity: "critical"
+      message: "工具错误突增"
+      channels: ["slack", "email"]
+
+    - name: "constraint_violations"
+      condition: "rate(constraint_violations_total[5m]) > 5"
+      severity: "warning"
+      message: "约束违反次数过多"
+      channels: ["slack"]
+```
+
+## Dashboard 配置
+
+```yaml
+dashboard:
+  enabled: true
+  provider: "grafana"
+  url: "http://grafana:3000"
+
+  # 面板配置
+  panels:
+    - name: "Task Overview"
+      type: "stat"
+      metrics:
+        - task_success_total
+        - task_failure_total
+        - task_duration_seconds_p95
+
+    - name: "Task Success Rate"
+      type: "gauge"
+      metrics:
+        - task_success_rate
+      thresholds:
+        warning: 0.90
+        critical: 0.85
+
+    - name: "Token Usage Trend"
+      type: "graph"
+      metrics:
+        - token_usage_total
+
+    - name: "Tool Usage Distribution"
+      type: "piechart"
+      metrics:
+        - tool_calls_total
+
+    - name: "Error Distribution"
+      type: "table"
+      metrics:
+        - task_failure_total
+      grouping: ["error_type"]
+
+    - name: "Harness Health"
+      type: "status"
+      metrics:
+        - constraint_violations_total
+        - context_exhaustion_total
+```
+
+## 相关文档
+
+- [docs/observability.md](../docs/observability.md) - 可观测性设计
+- [docs/evaluation.md](../docs/evaluation.md) - 评估体系

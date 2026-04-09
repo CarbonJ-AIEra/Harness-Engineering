@@ -1,0 +1,223 @@
+# 日志配置文件
+
+本文档定义 Agent 的日志配置。
+
+## 日志级别
+
+```yaml
+# configs/logging.yaml
+
+logging:
+  # 日志级别
+  level: "INFO"  # DEBUG, INFO, WARN, ERROR, CRITICAL
+
+  # 输出格式
+  format: "json"
+
+  # 输出目标
+  sinks:
+    - name: "stdout"
+      enabled: true
+      level: "INFO"
+      format: "pretty"  # 开发环境
+
+    - name: "file"
+      enabled: true
+      level: "DEBUG"
+      path: "logs/agent-{date}.log"
+      rotation: "daily"
+      retention_days: 30
+      max_size_mb: 100
+
+    - name: "remote"
+      enabled: false
+      endpoint: "https://logs.example.com/api/logs"
+      batch_size: 100
+      flush_interval_seconds: 5
+      level: "WARN"
+
+# 格式化模板
+formatters:
+  json:
+    template: |
+      {
+        "timestamp": "{timestamp}",
+        "level": "{level}",
+        "agent_id": "{agent_id}",
+        "session_id": "{session_id}",
+        "event": "{event}",
+        "message": "{message}",
+        "data": {data}
+      }
+
+  pretty:
+    template: |
+      [{timestamp}] {level:8} | {agent_id} | {event:20} | {message}
+```
+
+## 事件日志
+
+```yaml
+events:
+  # 必须记录的事件
+  required:
+    - name: "task_received"
+      level: "INFO"
+      log_data:
+        - task_id
+        - task_type
+        - priority
+
+    - name: "task_start"
+      level: "INFO"
+      log_data:
+        - task_id
+        - context_tokens
+        - available_tools
+
+    - name: "task_completed"
+      level: "INFO"
+      log_data:
+        - task_id
+        - duration_ms
+        - tokens_used
+        - success
+
+    - name: "task_failed"
+      level: "ERROR"
+      log_data:
+        - task_id
+        - error_type
+        - error_message
+        - retry_count
+
+    - name: "tool_called"
+      level: "DEBUG"
+      log_data:
+        - tool_name
+        - parameters
+        - result
+
+    - name: "tool_failed"
+      level: "WARN"
+      log_data:
+        - tool_name
+        - error
+        - retry_attempted
+
+    - name: "constraint_violation"
+      level: "WARN"
+      log_data:
+        - constraint_type
+        - violation_details
+        - action_taken
+
+    - name: "feedback_received"
+      level: "DEBUG"
+      log_data:
+        - feedback_type
+        - result
+
+  # 可选事件
+  optional:
+    - name: "agent_thinking"
+      level: "DEBUG"
+      log_data:
+        - reasoning
+
+    - name: "context_switch"
+      level: "INFO"
+      log_data:
+        - previous_context
+        - new_context
+        - reason
+```
+
+## 采样配置
+
+```yaml
+sampling:
+  # 不同级别的采样率
+  rates:
+    DEBUG: 0.1      # 10%
+    INFO: 1.0       # 100%
+    WARN: 1.0       # 100%
+    ERROR: 1.0      # 100%
+
+  # 特殊情况
+  always_log:
+    - task_failed
+    - constraint_violation
+    - security_event
+
+  never_sample:
+    - authentication
+    - authorization_denied
+    - data_access_pii
+```
+
+## 敏感信息处理
+
+```yaml
+sensitive_data:
+  # 检测模式
+  patterns:
+    - "api[_-]?key"
+    - "password"
+    - "secret"
+    - "token"
+    - "private[_-]?key"
+    - "bearer"
+    - "sk-[a-zA-Z0-9]{20,}"
+
+  # 处理方式
+  redaction:
+    enabled: true
+    replacement: "[REDACTED]"
+
+  # 日志中标记
+  alert_on_detection: true
+  mask_in_logs: true
+```
+
+## 审计日志
+
+```yaml
+audit:
+  enabled: true
+  storage: "logs/audit/{date}.jsonl"
+
+  events:
+    - name: "authentication"
+      level: "info"
+      persistent: true
+
+    - name: "authorization"
+      level: "warning"
+      persistent: true
+      trigger: "denied"
+
+    - name: "data_access"
+      level: "info"
+      persistent: true
+      track_pii: true
+
+    - name: "configuration_change"
+      level: "critical"
+      persistent: true
+      alert: true
+
+    - name: "destructive_operation"
+      level: "critical"
+      persistent: true
+      alert: true
+
+  retention:
+    days: 90
+    encryption: "AES-256"
+```
+
+## 相关文档
+
+- [docs/observability.md](../docs/observability.md) - 可观测性设计
+- [docs/security.md](../docs/security.md) - 安全规范

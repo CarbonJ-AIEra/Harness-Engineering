@@ -1,0 +1,152 @@
+# 上下文注入配置文件
+
+本文档定义 Agent 的上下文注入策略。
+
+## 静态上下文
+
+```yaml
+# configs/context-injection.yaml
+
+static_context:
+  # 项目概述文件 - 始终加载
+  always_included:
+    - file: "AGENTS.md"
+      priority: critical
+      description: "Agent 主要指令"
+
+    - file: "ARCHITECTURE.md"
+      priority: high
+      description: "架构约束"
+
+    - file: "HARNESS.md"
+      priority: high
+      description: "总体规范"
+
+  # 项目文档 - 按需加载
+  optional:
+    - file: "README.md"
+      priority: medium
+      trigger_on:
+        - task_init
+        - readme_request
+
+    - file: "package.json"
+      priority: medium
+      trigger_on:
+        - dependency_change
+        - build_task
+
+## 动态上下文
+
+dynamic_context:
+  # 任务类型触发
+  task_triggers:
+    - type: "frontend"
+      priority: high
+      load:
+        - "FRONTEND.md"
+        - "components/**/*.md"
+        - "hooks/**/*.md"
+
+    - type: "backend"
+      priority: high
+      load:
+        - "API.md"
+        - "services/**/*.md"
+        - "models/**/*.md"
+
+    - type: "testing"
+      priority: high
+      load:
+        - "TESTING.md"
+        - "tests/**/*.md"
+        - "mocks/**/*.md"
+
+    - type: "security"
+      priority: critical
+      load:
+        - "SECURITY.md"
+        - "configs/security-rules.yaml"
+
+  # 目录触发
+  directory_triggers:
+    - path: "src/components/**"
+      load:
+        - "docs/components.md"
+        - "docs/ui-standards.md"
+
+    - path: "src/services/**"
+      load:
+        - "docs/services.md"
+        - "docs/api-guidelines.md"
+
+    - path: "tests/**"
+      load:
+        - "TESTING.md"
+        - "docs/test-patterns.md"
+
+## 上下文优先级
+
+priority_order:
+  1: "system_instructions"      # 系统指令 - 最高
+  2: "architecture_rules"       # 架构规则
+  3: "current_task"             # 当前任务
+  4: "relevant_files"           # 相关文件
+  5: "coding_standards"         # 编码标准
+  6: "conversation_history"     # 对话历史 - 最低
+
+## 上下文压缩策略
+
+compression:
+  # 阈值设置
+  thresholds:
+    warning: 0.80    # 80% 时警告
+    critical: 0.90  # 90% 时压缩
+    emergency: 0.95 # 95% 时紧急压缩
+
+  # 压缩策略
+  strategies:
+    - name: "summarize_history"
+      when: "tokens > 80%"
+      action: "summarize_old_messages"
+      keep_recent_messages: 5
+
+    - name: "drop_low_priority"
+      when: "tokens > 90%"
+      action: "remove_decorative_docs"
+
+    - name: "smart_chunk"
+      when: "file_too_large"
+      action: "load_relevant_sections"
+      max_lines_per_file: 500
+
+    - name: "context_window_management"
+      when: "tokens > 95%"
+      action: "preserve_critical_only"
+      preserve:
+        - system_instructions
+        - current_task
+        - failing_tests
+
+## Token 预算分配
+
+token_budget:
+  total: 128000  # 128K tokens
+
+  allocation:
+    system_instructions: 0.15   # 15%
+    task_description: 0.15      # 15%
+    relevant_code: 0.45          # 45%
+    conversation_history: 0.15   # 15%
+    tool_output: 0.10            # 10%
+
+  monitoring:
+    log_usage: true
+    alert_threshold: 0.85
+    emergency_action: "trigger_compression"
+```
+
+## 相关文档
+
+- [docs/context-engineering.md](../docs/context-engineering.md) - 上下文工程
+- [docs/core-principles.md](../docs/core-principles.md) - 核心原则
